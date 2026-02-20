@@ -6,7 +6,7 @@ import './dashboard.css'
 import Text from '../dashboard_components/Notes.jsx'
 import Chapters from '../dashboard_components/Chapters.jsx';
 import Goals from '../dashboard_components/Goals.jsx';
-import useOgTags from '../useOgtags.jsx';
+import useOgTags from '../useOgTags.jsx';
 import Communicate from '../dashboard_components/Communicate.jsx';
 import { useNavigate } from 'react-router-dom';
 import { getDoc,doc } from 'firebase/firestore';
