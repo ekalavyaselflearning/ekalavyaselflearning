@@ -3,11 +3,13 @@ import Login from './pages/Login.jsx';
 import Signup from "./pages/Signup.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Personalisation from './pages/Personalisation.jsx'
+import LandingPage from './pages/LandingPage.jsx';
 export default function App() {
   return (
     <Router>
 
       <Routes>
+        <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path='/dashboard' element={<Dashboard/>}></Route>
