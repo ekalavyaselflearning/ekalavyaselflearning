@@ -10,6 +10,7 @@ import useOgTags from '../useOgTags.jsx';
 import Communicate from '../dashboard_components/Communicate.jsx';
 import { useNavigate } from 'react-router-dom';
 import { getDoc,doc } from 'firebase/firestore';
+import Feed from '../dashboard_components/Feed.jsx';
 
 export default function Dashboard(){
   useOgTags({
@@ -61,8 +62,7 @@ export default function Dashboard(){
 
   if (loading) return <div>Loading...</div>;
   function Call_Component(text){
-    if (text==null)
-      return
+    if (text==null){return <Feed/>}
     if (text=='Text'){return <Text user={`${user.email}`}/>}
     if (text=="Chapters") return <Chapters auth={auth} db={db}/>
     if (text=='Goals') return <Goals/>
