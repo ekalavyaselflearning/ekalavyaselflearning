@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './Feed.css';
+import { auth, db } from '../firebase.js';
+import { collection, doc, setDoc, getDocs, deleteDoc } from 'firebase/firestore';
 
 // Category config — maps UI tabs to GNews search queries
 const CATEGORIES = [
@@ -33,19 +35,45 @@ function timeAgo(dateStr) {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
+// Stable doc ID from article URL (base64-like, Firestore-safe)
+function articleDocId(url) {
+  return btoa(url).replace(/[^a-zA-Z0-9]/g, '').slice(0, 60);
+}
+
 // ── Single article card ────────────────────────────────────────────────
-function ArticleCard({ article, index }) {
+function ArticleCard({ article, index, isSaved, onToggleSave, saving }) {
   const relevant = isUpscRelevant(article);
   const [imgError, setImgError] = useState(false);
 
+  function handleCheckbox(e) {
+    e.preventDefault();    // don't open the link
+    e.stopPropagation();
+    onToggleSave(article);
+  }
+
   return (
     <a
-      className="feed-card"
+      className={`feed-card ${isSaved ? 'feed-card--saved' : ''}`}
       href={article.url}
       target="_blank"
       rel="noopener noreferrer"
       style={{ animationDelay: `${index * 60}ms` }}
     >
+      {/* ── Save checkbox ── */}
+      <button
+        className={`feed-card__save-btn ${isSaved ? 'feed-card__save-btn--saved' : ''} ${saving ? 'feed-card__save-btn--loading' : ''}`}
+        onClick={handleCheckbox}
+        title={isSaved ? 'Remove from saved' : 'Save article'}
+        aria-label={isSaved ? 'Remove from saved' : 'Save article'}
+      >
+        {saving
+          ? <span className="fa fa-solid fa-spinner fa-spin" />
+          : isSaved
+            ? <span className="fa fa-solid fa-bookmark" />
+            : <span className="fa fa-regular fa-bookmark" />
+        }
+      </button>
+
       {article.image && !imgError ? (
         <div className="feed-card__img-wrap">
           <img
@@ -87,6 +115,11 @@ function ArticleCard({ article, index }) {
           <span className="feed-card__read">
             Read more <span className="fa fa-solid fa-arrow-right" />
           </span>
+          {isSaved && (
+            <span className="feed-card__saved-label">
+              <span className="fa fa-solid fa-bookmark" /> Saved
+            </span>
+          )}
         </div>
       </div>
     </a>
@@ -118,7 +151,73 @@ export default function Feed() {
   const [searchResults, setSearchResults] = useState(null);
   const [searching, setSearching]         = useState(false);
 
-  const API_KEY = import.meta.env.VITE_GNEWS_KEY;
+  // ── Saved articles state ──
+  const [savedArticles, setSavedArticles] = useState({});  // { docId: article }
+  const [savingId, setSavingId]           = useState(null); // docId currently being saved
+  const [showSaved, setShowSaved]         = useState(false);
+  const [savedLoading, setSavedLoading]   = useState(false);
+  const [toast, setToast]                 = useState(null); // { msg, type }
+
+  const API_KEY    = import.meta.env.VITE_GNEWS_KEY;
+  const userEmail  = auth?.currentUser?.email;
+
+  // ── Load saved articles from Firestore on mount ──
+  useEffect(() => {
+    if (!userEmail) return;
+    setSavedLoading(true);
+    const newsCol = collection(db, 'learners', userEmail, 'news');
+    getDocs(newsCol)
+      .then(snap => {
+        const map = {};
+        snap.forEach(d => { map[d.id] = d.data(); });
+        setSavedArticles(map);
+      })
+      .catch(err => console.error('Failed to load saved news', err))
+      .finally(() => setSavedLoading(false));
+  }, [userEmail]);
+
+  // ── Toast helper ──
+  function showToast(msg, type = 'success') {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 2500);
+  }
+
+  // ── Toggle save / unsave ──
+  async function handleToggleSave(article) {
+    if (!userEmail) { showToast('Sign in to save articles.', 'error'); return; }
+    const docId   = articleDocId(article.url);
+    const newsRef = doc(db, 'learners', userEmail, 'news', docId);
+
+    setSavingId(docId);
+    try {
+      if (savedArticles[docId]) {
+        // unsave
+        await deleteDoc(newsRef);
+        setSavedArticles(prev => { const n = { ...prev }; delete n[docId]; return n; });
+        showToast('Removed from saved.');
+      } else {
+        // save
+        const payload = {
+          title:       article.title,
+          description: article.description || '',
+          url:         article.url,
+          image:       article.image || '',
+          source:      article.source?.name || '',
+          publishedAt: article.publishedAt,
+          savedAt:     new Date().toISOString(),
+          upscRelevant: isUpscRelevant(article),
+        };
+        await setDoc(newsRef, payload);
+        setSavedArticles(prev => ({ ...prev, [docId]: payload }));
+        showToast('Article saved!');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Something went wrong. Try again.', 'error');
+    } finally {
+      setSavingId(null);
+    }
+  }
 
   // Fetch articles for a category (cached per session)
   const fetchCategory = useCallback(async (categoryId) => {
@@ -178,6 +277,7 @@ export default function Feed() {
 
   const displayArticles = searchResults ?? (articlesByCategory[activeCategory] || []);
   const isLoading = loading || searching;
+  const savedList = Object.values(savedArticles);
 
   const today = new Date().toLocaleDateString('en-IN', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
@@ -185,6 +285,14 @@ export default function Feed() {
 
   return (
     <div className="feed-root">
+
+      {/* ── Toast ── */}
+      {toast && (
+        <div className={`feed-toast feed-toast--${toast.type}`}>
+          <span className={`fa fa-solid ${toast.type === 'error' ? 'fa-circle-xmark' : 'fa-circle-check'}`} />
+          {toast.msg}
+        </div>
+      )}
 
       {/* ── Header ── */}
       <div className="feed-header">
@@ -198,82 +306,143 @@ export default function Feed() {
           </div>
         </div>
 
-        {/* Search */}
-        <form className="feed-search" onSubmit={handleSearch}>
-          <span className="fa fa-solid fa-search feed-search__icon" />
-          <input
-            className="feed-search__input"
-            type="text"
-            placeholder="Search current affairs…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-          {search && (
-            <button type="button" className="feed-search__clear" onClick={clearSearch}>
-              <span className="fa fa-solid fa-xmark" />
-            </button>
-          )}
-          <button type="submit" className="feed-search__btn">Search</button>
-        </form>
-      </div>
-
-      {/* ── UPSC tip banner ── */}
-      <div className="feed-tip">
-        <span className="fa fa-solid fa-lightbulb feed-tip__icon" />
-        <span>Articles marked <strong>★ UPSC</strong> are relevant to competitive exam current affairs.</span>
-      </div>
-
-      {/* ── Category tabs ── */}
-      {!searchResults && (
-        <div className="feed-tabs">
-          {CATEGORIES.map(cat => (
-            <button
-              key={cat.id}
-              className={`feed-tab ${activeCategory === cat.id ? 'feed-tab--active' : ''}`}
-              onClick={() => setActiveCategory(cat.id)}
-            >
-              <span className={`fa fa-solid ${cat.icon}`} />
-              <span className="feed-tab__label">{cat.label}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Search result header */}
-      {searchResults && (
-        <div className="feed-search-header">
-          <span>
-            {searchResults.length} results for <strong>"{search}"</strong>
-          </span>
-          <button className="feed-search-header__clear" onClick={clearSearch}>
-            ← Back to feed
+        {/* Search + Saved toggle */}
+        <div className="feed-header__right">
+          <button
+            className={`feed-saved-toggle ${showSaved ? 'feed-saved-toggle--active' : ''}`}
+            onClick={() => { setShowSaved(s => !s); setSearchResults(null); }}
+            title="View saved articles"
+          >
+            <span className="fa fa-solid fa-bookmark" />
+            <span>Saved</span>
+            {savedList.length > 0 && (
+              <span className="feed-saved-toggle__count">{savedList.length}</span>
+            )}
           </button>
-        </div>
-      )}
 
-      {/* ── Error state ── */}
-      {error && (
-        <div className="feed-error">
-          <span className="fa fa-solid fa-triangle-exclamation" /> {error}
+          <form className="feed-search" onSubmit={handleSearch}>
+            <span className="fa fa-solid fa-search feed-search__icon" />
+            <input
+              className="feed-search__input"
+              type="text"
+              placeholder="Search current affairs…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+            {search && (
+              <button type="button" className="feed-search__clear" onClick={clearSearch}>
+                <span className="fa fa-solid fa-xmark" />
+              </button>
+            )}
+            <button type="submit" className="feed-search__btn">Search</button>
+          </form>
         </div>
-      )}
-
-      {/* ── Article grid ── */}
-      <div className="feed-grid">
-        {isLoading
-          ? Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
-          : displayArticles.length === 0 && !error
-            ? (
-              <div className="feed-empty">
-                <span className="fa fa-solid fa-inbox" />
-                <p>No articles found.</p>
-              </div>
-            )
-            : displayArticles.map((article, i) => (
-              <ArticleCard key={article.url} article={article} index={i} />
-            ))
-        }
       </div>
+
+      {/* ── UPSC tip banner (hide on saved view) ── */}
+      {!showSaved && (
+        <div className="feed-tip">
+          <span className="fa fa-solid fa-lightbulb feed-tip__icon" />
+          <span>Articles marked <strong>★ UPSC</strong> are relevant to competitive exam current affairs.
+            <strong> Bookmark</strong> any article to save it for revision.</span>
+        </div>
+      )}
+
+      {/* ══ SAVED VIEW ══════════════════════════════════════════════ */}
+      {showSaved ? (
+        <>
+          <div className="feed-saved-header">
+            <span className="fa fa-solid fa-bookmark" />
+            <span>Your Saved Articles</span>
+            <span className="feed-saved-header__count">{savedList.length} article{savedList.length !== 1 ? 's' : ''}</span>
+          </div>
+
+          {savedLoading ? (
+            <div className="feed-grid">
+              {Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)}
+            </div>
+          ) : savedList.length === 0 ? (
+            <div className="feed-empty">
+              <span className="fa fa-regular fa-bookmark" style={{ fontSize: '3rem' }} />
+              <p>No saved articles yet.</p>
+              <p style={{ fontSize: '0.8rem', color: '#b0bace' }}>
+                Click the bookmark icon on any article to save it here.
+              </p>
+            </div>
+          ) : (
+            <div className="feed-grid">
+              {savedList.map((article, i) => (
+                <ArticleCard
+                  key={article.url}
+                  article={article}
+                  index={i}
+                  isSaved={true}
+                  saving={savingId === articleDocId(article.url)}
+                  onToggleSave={handleToggleSave}
+                />
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        /* ══ FEED VIEW ══════════════════════════════════════════════ */
+        <>
+          {/* ── Category tabs ── */}
+          {!searchResults && (
+            <div className="feed-tabs">
+              {CATEGORIES.map(cat => (
+                <button
+                  key={cat.id}
+                  className={`feed-tab ${activeCategory === cat.id ? 'feed-tab--active' : ''}`}
+                  onClick={() => setActiveCategory(cat.id)}
+                >
+                  <span className={`fa fa-solid ${cat.icon}`} />
+                  <span className="feed-tab__label">{cat.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Search result header */}
+          {searchResults && (
+            <div className="feed-search-header">
+              <span>{searchResults.length} results for <strong>"{search}"</strong></span>
+              <button className="feed-search-header__clear" onClick={clearSearch}>← Back to feed</button>
+            </div>
+          )}
+
+          {/* ── Error state ── */}
+          {error && (
+            <div className="feed-error">
+              <span className="fa fa-solid fa-triangle-exclamation" /> {error}
+            </div>
+          )}
+
+          {/* ── Article grid ── */}
+          <div className="feed-grid">
+            {isLoading
+              ? Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
+              : displayArticles.length === 0 && !error
+                ? (
+                  <div className="feed-empty">
+                    <span className="fa fa-solid fa-inbox" />
+                    <p>No articles found.</p>
+                  </div>
+                )
+                : displayArticles.map((article, i) => (
+                  <ArticleCard
+                    key={article.url}
+                    article={article}
+                    index={i}
+                    isSaved={!!savedArticles[articleDocId(article.url)]}
+                    saving={savingId === articleDocId(article.url)}
+                    onToggleSave={handleToggleSave}
+                  />
+                ))
+            }
+          </div>
+        </>
+      )}
 
     </div>
   );

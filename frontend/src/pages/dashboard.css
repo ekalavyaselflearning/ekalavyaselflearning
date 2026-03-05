@@ -1393,7 +1393,7 @@ table td,table th{
     font-size: 1.25rem;
   }
 }
-
+/*__Communicate__*/
 /* ==================== CHAT SYSTEM STYLES ==================== */
 
 :root {
@@ -2158,6 +2158,51 @@ table td,table th{
     width: 44px;
     height: 44px;
   }
+}
+/* Typing Indicator */
+.typing-indicator {
+  color: var(--success-color);
+  font-style: italic;
+  animation: typing-pulse 1.5s infinite;
+}
+
+@keyframes typing-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Date Separator */
+.date-separator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 20px 0;
+  position: relative;
+}
+
+.date-separator::before,
+.date-separator::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(0, 0, 0, 0.1) 50%,
+    transparent
+  );
+}
+
+.date-separator span {
+  padding: 6px 16px;
+  background: rgba(48, 103, 205, 0.1);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 12px;
+  margin: 0 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 /*__Feed__*/
 

@@ -1,8 +1,11 @@
-
+/* ═══════════════════════════════════════════════════════
+   Feed.css  —  Today's Feed  |  Ekalavya Dashboard
+   Design language: matches dashboard.css blue gradient system
+   ═══════════════════════════════════════════════════════ */
 
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap');
 
-
+/* ── Root container ────────────────────────────────────── */
 .feed-root {
   width: 100%;
   min-height: 100vh;
@@ -12,6 +15,7 @@
   box-sizing: border-box;
 }
 
+/* ── Header ────────────────────────────────────────────── */
 .feed-header {
   display: flex;
   align-items: center;
@@ -436,6 +440,202 @@
 
 .feed-empty .fa-inbox { font-size: 3rem; }
 
+/* ── Header right cluster ───────────────────────────────── */
+.feed-header__right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* ── Saved toggle button ────────────────────────────────── */
+.feed-saved-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1rem;
+  border-radius: 10px;
+  border: 2px solid #e2e8f4;
+  background: white;
+  color: #5a6a8a;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  position: relative;
+}
+
+.feed-saved-toggle:hover {
+  border-color: #3067cd;
+  color: #3067cd;
+  background: #f0f4ff;
+}
+
+.feed-saved-toggle--active {
+  background: var(--gradient, linear-gradient(135deg, #3067cd, #5b8af5));
+  border-color: transparent;
+  color: white;
+  box-shadow: 0 4px 14px rgba(48, 103, 205, 0.3);
+}
+
+.feed-saved-toggle--active:hover {
+  color: white;
+  background: var(--gradient, linear-gradient(135deg, #3067cd, #5b8af5));
+}
+
+.feed-saved-toggle__count {
+  background: #ef4444;
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 700;
+  border-radius: 20px;
+  padding: 0.1rem 0.45rem;
+  line-height: 1.4;
+  min-width: 18px;
+  text-align: center;
+}
+
+.feed-saved-toggle--active .feed-saved-toggle__count {
+  background: rgba(255,255,255,0.3);
+}
+
+/* ── Saved section header ───────────────────────────────── */
+.feed-saved-header {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-family: 'Syne', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0f1c3f;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 2px solid #e8edf5;
+}
+
+.feed-saved-header .fa-bookmark { color: #3067cd; }
+
+.feed-saved-header__count {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #8a96b0;
+  margin-left: auto;
+  background: #f0f4ff;
+  padding: 0.25rem 0.65rem;
+  border-radius: 20px;
+}
+
+/* ── Per-card save button ───────────────────────────────── */
+.feed-card {
+  position: relative; /* needed for absolute save btn */
+}
+
+.feed-card__save-btn {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  z-index: 10;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(4px);
+  color: #8a96b0;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(15, 28, 63, 0.12);
+  transition: all 0.2s ease;
+  opacity: 0;               /* hidden by default, show on hover */
+}
+
+.feed-card:hover .feed-card__save-btn,
+.feed-card__save-btn--saved {
+  opacity: 1;               /* always visible when saved */
+}
+
+.feed-card__save-btn:hover {
+  transform: scale(1.12);
+  background: white;
+  color: #3067cd;
+  box-shadow: 0 4px 14px rgba(48, 103, 205, 0.2);
+}
+
+.feed-card__save-btn--saved {
+  color: #3067cd;
+  background: #eef3ff;
+}
+
+.feed-card__save-btn--saved:hover {
+  color: #ef4444;
+  background: #fff5f5;
+}
+
+.feed-card__save-btn--loading {
+  opacity: 1;
+  pointer-events: none;
+  color: #8a96b0;
+}
+
+/* ── Saved card ring ────────────────────────────────────── */
+.feed-card--saved {
+  border-color: #c5d5f5;
+  box-shadow: 0 2px 10px rgba(48, 103, 205, 0.1), inset 0 0 0 1px rgba(48,103,205,0.08);
+}
+
+/* ── Saved label in footer ──────────────────────────────── */
+.feed-card__saved-label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #3067cd;
+  margin-left: auto;
+}
+
+/* ── Toast notification ─────────────────────────────────── */
+.feed-toast {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.85rem 1.25rem;
+  border-radius: 12px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 500;
+  box-shadow: 0 8px 28px rgba(15, 28, 63, 0.15);
+  animation: toastIn 0.3s ease;
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(14px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.feed-toast--success {
+  background: #0f1c3f;
+  color: white;
+}
+
+.feed-toast--success .fa-circle-check { color: #4ade80; }
+
+.feed-toast--error {
+  background: #fff5f5;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
 /* ── Responsive ─────────────────────────────────────────── */
 @media (max-width: 768px) {
   .feed-root { padding: 1.25rem 1rem 3rem; }
@@ -444,6 +644,14 @@
     flex-direction: column;
     align-items: flex-start;
   }
+
+  .feed-header__right {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .feed-saved-toggle { justify-content: center; }
 
   .feed-search { min-width: 100%; width: 100%; }
 
@@ -456,6 +664,12 @@
   .feed-tab {
     padding: 0.55rem 0.85rem;
     font-size: 1rem;
+  }
+
+  .feed-toast {
+    bottom: 1rem;
+    right: 1rem;
+    left: 1rem;
   }
 }
 

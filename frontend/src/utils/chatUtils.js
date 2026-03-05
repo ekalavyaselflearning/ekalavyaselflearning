@@ -104,3 +104,18 @@ export async function updateLastMessage(currentUserEmail, targetUserEmail, messa
   await updateDoc(doc(db, "learners", currentUserEmail, "chats", targetUserEmail), updates);
   await updateDoc(doc(db, "learners", targetUserEmail, "chats", currentUserEmail), updates);
 }
+
+// Add this function for proper cleanup
+export async function setUserOffline(userEmail) {
+  await updateDoc(doc(db, "learners", userEmail), {
+    online: false,
+    lastSeen: serverTimestamp(),
+  });
+}
+
+// Add typing indicator update
+export async function updateTypingStatus(roomId, userEmail, isTyping) {
+  // This will be published via NATS, not Firestore
+  // Just a placeholder for structure reference
+  return { roomId, user: userEmail, isTyping, timestamp: Date.now() };
+}
