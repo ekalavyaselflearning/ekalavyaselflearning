@@ -3,7 +3,7 @@ import { onAuthStateChanged, signOut, getAuth, createUserWithEmailAndPassword } 
 import { getDoc, setDoc, doc, collection, getDocs, updateDoc } from "firebase/firestore";
 import { initializeApp } from "firebase/app";
 import { auth, db } from "../firebase.js";
-import "./founderdashboard.css";
+import "./FounderDashboard.css";
 
 // ── Secondary app (used only for creating new employee Auth accounts) ─────────
 let secondaryApp = null;
