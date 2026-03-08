@@ -564,6 +564,46 @@ export default function FounderDashboard() {
 
             {/* Role constraint indicators — based on active employees only */}
             <div className="fd-role-constraints">
+                <div style={{ display: "flex", gap: "1rem", marginBottom: "1.5rem", flexWrap: "wrap" }}>
+                    <div className="fd-role-desc-card" style={{ borderTop: `3px solid #0d7377` }}>
+                        <div className="fd-role-desc-icon" style={{ background: "#0d737718", color: "#0d7377" }}>
+                        <i className="fa fa-solid fa-chalkboard-user" />
+                        </div>
+                        <div className="fd-role-desc-title" style={{ color: "#0d7377" }}>Mentor</div>
+                        <ul className="fd-role-desc-list">
+                        <li>Upload videos, test series, assignments and solved PYQs</li>
+                        <li>Set content visibility — public or academy-only per upload</li>
+                        <li>Conduct one-to-one mentoring sessions on request basis</li>
+                        <li>Accept or decline student session requests and share meeting links</li>
+                        </ul>
+                    </div>
+
+                    <div className="fd-role-desc-card" style={{ borderTop: `3px solid #5c35a0` }}>
+                        <div className="fd-role-desc-icon" style={{ background: "#5c35a018", color: "#5c35a0" }}>
+                        <i className="fa fa-solid fa-pen-nib" />
+                        </div>
+                        <div className="fd-role-desc-title" style={{ color: "#5c35a0" }}>Content Management</div>
+                        <ul className="fd-role-desc-list">
+                        <li>Review all live content and remove material that does not meet standards</li>
+                        <li>Push announcements to students for exams, assignments and assessments</li>
+                        <li>Guide mentors on structuring and improving their content</li>
+                        <li>Coordinate with mentors to ensure timely and relevant uploads</li>
+                        </ul>
+                    </div>
+
+                    <div className="fd-role-desc-card" style={{ borderTop: `3px solid #b45309` }}>
+                        <div className="fd-role-desc-icon" style={{ background: "#b4530918", color: "#b45309" }}>
+                        <i className="fa fa-solid fa-handshake" />
+                        </div>
+                        <div className="fd-role-desc-title" style={{ color: "#b45309" }}>Conflict Resolution</div>
+                        <ul className="fd-role-desc-list">
+                        <li>Receive and manage dispute tickets from students, mentors and external users</li>
+                        <li>Track ticket status from open through in-progress to resolved</li>
+                        <li>Add investigation notes and communicate outcomes to involved parties</li>
+                        <li>Escalate unresolved or serious disputes to the founder</li>
+                        </ul>
+                    </div>
+                    </div>
               {ROLE_OPTIONS.map((r) => {
                 const count = activeEmployees.filter((e) => e.role === r.value).length;
                 const ok    = r.value === "mentor" ? count >= 1 : count === 1;
