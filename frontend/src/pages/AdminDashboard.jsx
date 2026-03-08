@@ -88,7 +88,11 @@ const emptyForm = () => ({
   address: "",
   googleBusiness: "",
   founderSignature: null,
-  employees: [emptyEmployee()],
+  employees: [
+    { name: "", dob: "", gender: "", role: "mentor" },
+    { name: "", dob: "", gender: "", role: "content_management" },
+    { name: "", dob: "", gender: "", role: "conflict_resolution" },
+  ],
 });
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -103,6 +107,8 @@ export default function AdminDashboard() {
   const [toast, setToast] = useState(null);
   const sigCanvasRef = useRef(null);
   const drawingRef = useRef(false);
+  const [sigMode, setSigMode] = useState("draw"); 
+  const [createdCredentials, setCreatedCredentials] = useState(null);
 
   // ── Auth check ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -169,16 +175,51 @@ export default function AdminDashboard() {
 
   // ── Employee handlers ───────────────────────────────────────────────────────
   function updateEmployee(idx, key, val) {
-    setForm((f) => {
-      const emps = [...f.employees];
-      emps[idx] = { ...emps[idx], [key]: val };
-      return { ...f, employees: emps };
-    });
+    if (key === "role") {
+    const currentRole = form.employees[idx].role;
+    const newRole = val;
+
+    // Prevent changing away from a singleton role if it would leave zero
+    const singletonRoles = ["content_management", "conflict_resolution"];
+    if (singletonRoles.includes(currentRole) && currentRole !== newRole) {
+      const roleCount = form.employees.filter(e => e.role === currentRole).length;
+      if (roleCount <= 1) {
+        showToast("error", `Exactly one ${ROLE_OPTIONS.find(r => r.value === currentRole)?.label} is required.`);
+        return;
+      }
+    }
+    // Prevent adding a second content manager or conflict resolution
+    if (singletonRoles.includes(newRole)) {
+      const roleCount = form.employees.filter(e => e.role === newRole).length;
+      if (roleCount >= 1) {
+        showToast("error", `Exactly one ${ROLE_OPTIONS.find(r => r.value === newRole)?.label} is allowed.`);
+        return;
+      }
+    }
+  }
+
+  setForm((f) => {
+    const emps = [...f.employees];
+    emps[idx] = { ...emps[idx], [key]: val };
+    return { ...f, employees: emps };
+  });
   }
   function addEmployee() {
     setForm((f) => ({ ...f, employees: [...f.employees, emptyEmployee()] }));
   }
   function removeEmployee(idx) {
+    const emp = form.employees[idx];
+    const roleCount = form.employees.filter(e => e.role === emp.role).length;
+
+    if (emp.role === "mentor" && roleCount <= 1) {
+      showToast("error", "At least one Mentor must remain."); return;
+    }
+    if (emp.role === "content_management" && roleCount <= 1) {
+      showToast("error", "Exactly one Content Manager is required."); return;
+    }
+    if (emp.role === "conflict_resolution" && roleCount <= 1) {
+      showToast("error", "Exactly one Conflict Resolution person is required."); return;
+    }
     setForm((f) => ({ ...f, employees: f.employees.filter((_, i) => i !== idx) }));
   }
 
@@ -195,11 +236,31 @@ export default function AdminDashboard() {
         return;
       }
     }
+    const mentors = employees.filter(e => e.role === "mentor");
+    const cms = employees.filter(e => e.role === "content_management");
+    const crs = employees.filter(e => e.role === "conflict_resolution");
+
+    if (mentors.length < 1) {
+      showToast("error", "At least one Mentor is required."); return;
+    }
+    if (cms.length !== 1) {
+      showToast("error", "Exactly one Content Manager is required."); return;
+    }
+    if (crs.length !== 1) {
+      showToast("error", "Exactly one Conflict Resolution person is required."); return;
+    }
     setSubmitting(true);
+    const credentials = [];
     try {
       const secondaryAuth = getSecondaryAuth();
       const academyId = await generateAcademyId(academyName);
       const academyPassword = `Ekalavya@${yearEstablished}`;
+      const joinCode = await generateJoinCode();
+      /*Use after getting to cludinary*/
+      // const signatureURL = form.founderSignature
+      //   ? await uploadSignatureToCloudinary(form.founderSignature)
+      //   : null;
+      const signatureURL = form.founderSignature ?? null;
 
       await createUserWithEmailAndPassword(secondaryAuth, academyId, academyPassword);
       await signOut(secondaryAuth);
@@ -210,10 +271,19 @@ export default function AdminDashboard() {
         yearEstablished,
         address,
         googleBusiness: form.googleBusiness || null,
-        founderSignature: form.founderSignature || null,
+        founderSignature: signatureURL,
         createdAt: new Date().toISOString(),
         createdBy: adminUser.email,
+        joinCode:joinCode,
         loginId: academyId,
+        linkedGAcc: null,        // ← add this
+      });
+      credentials.push({
+        label: "Academy Login",
+        name: academyName,
+        username: academyId,
+        password: academyPassword,
+        joinCode:joinCode
       });
 
       for (const emp of employees) {
@@ -233,10 +303,19 @@ export default function AdminDashboard() {
           loginId: empId,
           firstLogin: true,
           createdAt: new Date().toISOString(),
+          linkedGAcc: null,        // ← add this
+        });
+        credentials.push({
+          label: ROLE_OPTIONS.find(r => r.value === emp.role)?.label,
+          name: emp.name,
+          username: empId,
+          password: dobToPassword(emp.dob),
         });
       }
 
-      showToast("success", `Registered: ${academyId}`);
+      setCreatedCredentials(credentials);
+      setForm(emptyForm());
+      clearSignature();
       setForm(emptyForm());
       clearSignature();
     } catch (err) {
@@ -247,6 +326,30 @@ export default function AdminDashboard() {
     }
   }
 
+  async function generateJoinCode() {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0,O,1,I to avoid confusion
+    const generate = () => Array.from({ length: 7 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+    
+    let code = generate();
+    // Collision check against existing academies
+    const snap = await getDocs(collection(db, "academies"));
+    const existingCodes = new Set(snap.docs.map(d => d.data().joinCode));
+    while (existingCodes.has(code)) code = generate();
+    return code;
+  }
+  async function uploadSignatureToCloudinary(dataUrl) {
+    const formData = new FormData();
+    formData.append("file", dataUrl);
+    formData.append("upload_preset", "ekalavya_signatures"); // your preset name
+    formData.append("folder", "signatures");
+
+    const res = await fetch(
+      "https://api.cloudinary.com/v1_1/YOUR_CLOUD_NAME/image/upload", // replace YOUR_CLOUD_NAME
+      { method: "POST", body: formData }
+    );
+    const data = await res.json();
+    return data.secure_url;
+  }
   function showToast(type, msg) {
     setToast({ type, msg });
     setTimeout(() => setToast(null), 4500);
@@ -410,15 +513,46 @@ export default function AdminDashboard() {
                   width={600}
                   height={150}
                   className="admin-sig-canvas"
-                  onMouseDown={canvasPointerDown}
-                  onMouseMove={canvasPointerMove}
-                  onMouseUp={canvasPointerUp}
-                  onMouseLeave={canvasPointerUp}
+                  onMouseDown={sigMode === "draw" ? canvasPointerDown : undefined}
+                  onMouseMove={sigMode === "draw" ? canvasPointerMove : undefined}
+                  onMouseUp={sigMode === "draw" ? canvasPointerUp : undefined}
+                  onMouseLeave={sigMode === "draw" ? canvasPointerUp : undefined}
+                  style={{ cursor: sigMode === "draw" ? "crosshair" : "not-allowed" }}
                 />
-                <button className="admin-sig-clear" onClick={clearSignature}>
+                <button className="admin-sig-clear" onClick={()=>{clearSignature();setSigMode("draw");}}>
                   <i className="fa fa-solid fa-rotate-left" style={{ marginRight: 6 }} />
                   Clear Signature
                 </button>
+                <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginTop: "0.5rem" }}>
+                  <span style={{ color: "#94a3b8", fontSize: "0.8rem" }}>or</span>
+                  <label htmlFor="sig-upload" className="admin-sig-upload-label">
+                    <i className="fa fa-solid fa-upload" style={{ marginRight: 6 }} />
+                    Upload Signature Image
+                  </label>
+                  <input
+                    id="sig-upload"
+                    type="file"
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = (ev) => {
+                        const img = new Image();
+                        img.onload = () => {
+                          const ctx = sigCanvasRef.current.getContext("2d");
+                          ctx.clearRect(0, 0, sigCanvasRef.current.width, sigCanvasRef.current.height);
+                          ctx.drawImage(img, 0, 0, sigCanvasRef.current.width, sigCanvasRef.current.height);
+                          setForm((f) => ({ ...f, founderSignature: sigCanvasRef.current.toDataURL() }));
+                          setSigMode("uploaded");
+                        };
+                        img.src = ev.target.result;
+                      };
+                      reader.readAsDataURL(file);
+                    }}
+                  />
+                </div>
               </div>
             </div>
 
@@ -447,6 +581,7 @@ export default function AdminDashboard() {
                         className="admin-input"
                         placeholder="e.g. Arjun Sharma"
                         value={emp.name}
+                        data-id='name'
                         onChange={(e) => updateEmployee(idx, "name", e.target.value)}
                       />
                     </div>
@@ -580,36 +715,78 @@ export default function AdminDashboard() {
                           <tr key={a.id + "-sub"} className="admin-emp-subtable-row">
                             <td colSpan={5}>
                               <div className="admin-emp-subtable">
+
+                                {/* ── Academy Details ── */}
                                 <div className="admin-emp-subtable-header">
+                                  <i className="fa fa-solid fa-building-columns" />
+                                  {a.name} — Full Details
+                                </div>
+                                <div style={{ padding: "1rem 1.25rem", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem 2rem", borderBottom: "1px solid #dbeafe" }}>
+                                  {[
+                                    { label: "Founder",       value: a.founder },
+                                    { label: "Established",   value: a.yearEstablished },
+                                    { label: "Address",       value: a.address },
+                                    { label: "Login ID",      value: a.id },
+                                    { label: "Join Code",     value: a.joinCode },
+                                    { label: "Linked Google", value: a.linkedGAcc || "Not linked yet" },
+                                  ].map(({ label, value }) => (
+                                    <div key={label} style={{ fontSize: "0.83rem", padding: "0.3rem 0" }}>
+                                      <span style={{ fontWeight: 700, color: "#64748b", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.08em", display: "block" }}>{label}</span>
+                                      <span style={{ color: "#1e293b" }}>{value}</span>
+                                    </div>
+                                  ))}
+                                  {a.googleBusiness && (
+                                    <div style={{ fontSize: "0.83rem", padding: "0.3rem 0" }}>
+                                      <span style={{ fontWeight: 700, color: "#64748b", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.08em", display: "block" }}>Google Business</span>
+                                      <a href={a.googleBusiness} target="_blank" rel="noreferrer" className="google-link">{a.googleBusiness}</a>
+                                    </div>
+                                  )}
+                                  {a.founderSignature && (
+                                    <div style={{ fontSize: "0.83rem", padding: "0.3rem 0", gridColumn: "1 / -1" }}>
+                                      <span style={{ fontWeight: 700, color: "#64748b", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 6 }}>Founder Signature</span>
+                                      <img src={a.founderSignature} alt="Founder Signature" style={{ height: 60, border: "1px solid #dbeafe", borderRadius: 8, background: "#f8faff", padding: 4 }} />
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* ── Employees ── */}
+                                <div className="admin-emp-subtable-header" style={{ borderTop: "none" }}>
                                   <i className="fa fa-solid fa-users" />
-                                  {a.name} — Employees
+                                  Employees & Credentials
                                 </div>
                                 <table className="admin-table">
                                   <thead>
                                     <tr>
                                       <th>Name</th>
                                       <th>Login ID</th>
+                                      <th>Password</th>
                                       <th>Role</th>
                                       <th>Age</th>
                                       <th>Gender</th>
+                                      <th>Google</th>
                                     </tr>
                                   </thead>
                                   <tbody>
                                     {a.employees.map((emp) => (
                                       <tr key={emp.id} onClick={(e) => e.stopPropagation()}>
-                                        <td style={{ color: "var(--white)", fontWeight: 600 }}>{emp.name}</td>
+                                        <td style={{ fontWeight: 600, color: "#1e293b" }}>{emp.name}</td>
                                         <td><span className="admin-id-chip">{emp.id}</span></td>
+                                        <td><span className="admin-id-chip">{dobToPassword(emp.dob)}</span></td>
                                         <td>
                                           <span className={`admin-badge ${emp.role}`}>
-                                            {ROLE_OPTIONS.find((r) => r.value === emp.role)?.label || emp.role}
+                                            {ROLE_OPTIONS.find(r => r.value === emp.role)?.label || emp.role}
                                           </span>
                                         </td>
                                         <td>{emp.age}</td>
                                         <td style={{ textTransform: "capitalize" }}>{emp.gender}</td>
+                                        <td style={{ fontSize: "0.75rem", color: emp.linkedGAcc ? "#059669" : "#94a3b8" }}>
+                                          {emp.linkedGAcc || "Not linked"}
+                                        </td>
                                       </tr>
                                     ))}
                                   </tbody>
                                 </table>
+
                               </div>
                             </td>
                           </tr>
@@ -623,6 +800,103 @@ export default function AdminDashboard() {
           </>
         )}
       </main>
+      {createdCredentials && (
+        <div style={{
+          position: "fixed", inset: 0,
+          background: "rgba(0,0,0,0.55)",
+          display: "flex", alignItems: "center",
+          justifyContent: "center", zIndex: 9998
+        }}>
+          <div className="admin-card" style={{
+            width: 580, maxHeight: "82vh",
+            overflowY: "auto", margin: 0,
+            boxShadow: "0 24px 64px rgba(0,0,0,0.2)"
+          }}>
+            <div className="admin-card-title">
+              <i className="fa fa-solid fa-key" />
+              Registration Complete — Note Down Credentials
+            </div>
+
+            <p style={{ fontSize: "0.82rem", color: "#64748b", marginBottom: "1.25rem", lineHeight: 1.6 }}>
+              These credentials will <strong>not</strong> be shown again.
+              Note them down and hand them to the respective person securely.
+              Users may link their Google account on first login — until then,
+              <code style={{ background: "rgba(48,103,205,0.08)", color: "#3067cd", padding: "1px 6px", borderRadius: 4, marginLeft: 4 }}>linkedGAcc</code> remains empty.
+            </p>
+
+            {createdCredentials.map((c, i) => (
+              <div key={i} style={{
+                background: "#f8faff",
+                border: "1px solid #dbeafe",
+                borderRadius: 10,
+                padding: "1rem 1.25rem",
+                marginBottom: "0.75rem"
+              }}>
+                <div style={{
+                  fontSize: "0.68rem", fontWeight: 700,
+                  color: "#3067cd", textTransform: "uppercase",
+                  letterSpacing: "0.1em", marginBottom: "0.65rem",
+                  display: "flex", alignItems: "center", gap: 6
+                }}>
+                  <i className={`fa fa-solid ${c.label === "Academy Login"
+                    ? "fa-building-columns"
+                    : c.label === "Mentor"
+                    ? "fa-chalkboard-user"
+                    : c.label === "Content Management"
+                    ? "fa-pen-nib"
+                    : "fa-handshake"}`}
+                  />
+                  {c.label} — {c.name}
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div style={{ fontSize: "0.83rem", color: "#374151", display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontWeight: 600, minWidth: 80 }}>Username</span>
+                    <code style={{
+                      background: "rgba(48,103,205,0.08)", color: "#3067cd",
+                      padding: "3px 10px", borderRadius: 6, fontSize: "0.78rem",
+                      fontFamily: "'Courier New', monospace"
+                    }}>{c.username}</code>
+                  </div>
+                  <div style={{ fontSize: "0.83rem", color: "#374151", display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontWeight: 600, minWidth: 80 }}>Password</span>
+                    <code style={{
+                      background: "rgba(48,103,205,0.08)", color: "#3067cd",
+                      padding: "3px 10px", borderRadius: 6, fontSize: "0.78rem",
+                      fontFamily: "'Courier New', monospace"
+                    }}>{c.password}</code>
+                  </div>
+                  
+                  <div style={{ fontSize: "0.75rem", color: "#94a3b8", marginTop: 2, display: "flex", alignItems: "center", gap: 6 }}>
+                    <i className="fa fa-brands fa-google" />
+                    Google account will be linked by the user on first login
+                  </div>
+
+                  {c.joinCode && (
+                    <div style={{ fontSize: "0.83rem", color: "#374151", display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontWeight: 600, minWidth: 80 }}>Join Code</span>
+                      <code style={{
+                        background: "rgba(48,103,205,0.08)", color: "#3067cd",
+                        padding: "3px 10px", borderRadius: 6, fontSize: "0.78rem",
+                        fontFamily: "'Courier New', monospace", letterSpacing: "0.15em"
+                      }}>{c.joinCode}</code>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "1.25rem" }}>
+              <button
+                className="admin-submit-btn"
+                onClick={() => setCreatedCredentials(null)}
+              >
+                <i className="fa fa-solid fa-check" /> Done, Credentials Noted
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Toast ── */}
       {toast && (

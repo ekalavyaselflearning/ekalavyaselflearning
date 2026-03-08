@@ -383,6 +383,23 @@
   transform: translateY(-1px);
 }
 
+.admin-sig-upload-label {
+  background: rgba(48, 103, 205, 0.08);
+  border: 2px dashed #93c5fd;
+  border-radius: 8px;
+  color: #3067cd;
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.admin-sig-upload-label:hover {
+  background: rgba(48, 103, 205, 0.15);
+  border-color: #3067cd;
+}
+
 /* ── Employee Cards ───────────────────────────────────────────────────────── */
 .admin-emp-card {
   background: #f8faff;

@@ -1,7 +1,8 @@
 import {useState,useEffect} from 'react'
 import '../App.css'
 import './login.css'
-import { auth } from '../firebase'
+import { auth, db } from '../firebase'
+import { getDoc, doc, collection, getDocs } from 'firebase/firestore'
 import { signInWithEmailAndPassword } from 'firebase/auth'
 export default function Login() {
     let [index,changeIndexTo]=useState(0);
@@ -93,9 +94,53 @@ export default function Login() {
             await signInWithEmailAndPassword(auth,email,password)
             setSuccess(true)
             setLoading(false)
-            setTimeout(()=>{
+
+            setTimeout(async () => {
+                const userEmail = email.trim().toLowerCase()
+
+                // 1. Check if system admin
+                const adminSnap = await getDoc(doc(db, 'admins', userEmail))
+                if (adminSnap.exists()) {
+                    window.location.href = '/admin'
+                    return
+                }
+
+                // 2. Check if academy founder (doc lives directly under academies/)
+                const academySnap = await getDoc(doc(db, 'academies', userEmail))
+                if (academySnap.exists()) {
+                    window.location.href = '/founder'
+                    return
+                }
+
+                // 3. Check employee role across all academies
+                const academiesSnap = await getDocs(collection(db, 'academies'))
+                for (const academyDoc of academiesSnap.docs) {
+                    const empSnap = await getDoc(
+                        doc(db, 'academies', academyDoc.id, 'employees', userEmail)
+                    )
+                    if (empSnap.exists()) {
+                        const empData = empSnap.data();
+
+                        // Deferred deletion — clean up Firestore and deny access
+                        if (empData.markedForDeletion) {
+                            await deleteDoc(doc(db, "academies", academyDoc.id, "employees", userEmail));
+                            await signOut(auth);
+                            // Show a friendly message instead of redirecting to a dashboard
+                            setError("Your account has been removed. Please contact your academy.");
+                            setLoading(false);
+                            return;
+                        }
+
+                        const role = empData.role;
+                        if (role === "mentor")              { window.location.href = "/mentor"; return; }
+                        if (role === "content_management")  { window.location.href = "/content-management"; return; }
+                        if (role === "conflict_resolution") { window.location.href = "/conflict-resolution"; return; }
+                        }
+                }
+
+                // 4. Default — regular student dashboard
                 window.location.href = '/dashboard'
-            },1200)
+            }, 1200)
         }catch(err){
             console.error('Firebase sign-in error', err)
             // Prefer user-friendly messages based on Firebase error codes
