@@ -493,7 +493,7 @@ export default function LandingPage() {
               <div className="footer-col">
                 <h4>Connect</h4>
                 <a href="#">hello@ekalavya.in</a>
-                <a href="#">+91 98765 43210</a>
+                <a href="#">+91 97893 92106</a>
               </div>
             </div>
             <div className="footer-bottom">
