@@ -5,7 +5,7 @@ import {
   doc, collection, query, orderBy, where,
 } from "firebase/firestore";
 import { auth, db } from "../firebase.js";
-import "./mentordashboard.css";
+import "./MentorDashboard.css";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function formatDate(iso) {
