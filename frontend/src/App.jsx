@@ -8,6 +8,7 @@ import AdminDashboard from "./pages/AdminDashboard.jsx";
 import FounderDashboard from "./pages/FounderDashboard.jsx";
 import ConflictResolution from "./pages/ConflictResolution.jsx";
 import ContentDashboard from "./pages/ContentDashboard.jsx";
+import MentorDashboard from "./pages/MentorDashboard.jsx";
 export default function App() {
   return (
     <Router>
@@ -22,6 +23,8 @@ export default function App() {
         <Route path='/founder' element={<FounderDashboard/>}></Route>
         <Route path='/conflict-resolution' element={<ConflictResolution/>}></Route>
         <Route path='/content-management' element={<ContentDashboard/>}></Route>
+        <Route path='/mentor' element={<MentorDashboard/>}></Route>
+
 
 
         <Route path="*" element={<h1>404: Page Not Found</h1>} />
