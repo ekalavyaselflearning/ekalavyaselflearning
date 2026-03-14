@@ -6,6 +6,7 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "../firebase.js";
 import "./ContentDashboard.css";
+import useOgTags from "../useOgTags.jsx";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function formatDate(iso) {
@@ -60,6 +61,11 @@ function StatCard({ icon, label, value, accent }) {
 
 // ── Content Detail Modal ──────────────────────────────────────────────────────
 function ContentModal({ item, academyId, cmEmail, onClose, onUpdated, showToast }) {
+  useOgTags({
+    title: "Content Management | Ekalavya",
+    description: "Ekalavya",
+    image:'vite.svg'
+  });
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving]         = useState(false);
   const [editing, setEditing]       = useState(false);

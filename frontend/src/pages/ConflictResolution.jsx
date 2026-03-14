@@ -6,6 +6,7 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "../firebase.js";
 import "./ConflictResolution.css";
+import useOgTags from "../useOgTags.jsx";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function formatDate(iso) {
@@ -60,6 +61,11 @@ function StatCard({ icon, label, value, accent }) {
 
 // ── Ticket Modal ──────────────────────────────────────────────────────────────
 function TicketModal({ ticket, academyId, crEmail, onClose, onUpdated, showToast }) {
+  useOgTags({
+    title: "Conflict Resolution | Ekalavya",
+    description: "Ekalavya",
+    image:'vite.svg'
+  });
   const [status, setStatus]       = useState(ticket.status);
   const [noteText, setNoteText]   = useState("");
   const [saving, setSaving]       = useState(false);

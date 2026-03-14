@@ -15,6 +15,7 @@ import {
 import { initializeApp } from "firebase/app";
 import { auth, db } from "../firebase.js";
 import "./admindashboard.css";
+import useOgTags from "../useOgTags.jsx";
 
 // ── Secondary Firebase app ────────────────────────────────────────────────────
 let secondaryApp = null;
@@ -97,6 +98,11 @@ const emptyForm = () => ({
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function AdminDashboard() {
+  useOgTags({
+    title: "Admins | Ekalavya",
+    description: "Ekalavya",
+    image:'vite.svg'
+  });
   const [adminUser, setAdminUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(null);
   const [tab, setTab] = useState("register");

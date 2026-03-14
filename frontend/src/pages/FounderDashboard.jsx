@@ -4,7 +4,7 @@ import { getDoc, setDoc, doc, collection, getDocs, updateDoc } from "firebase/fi
 import { initializeApp } from "firebase/app";
 import { auth, db } from "../firebase.js";
 import "./FounderDashboard.css";
-
+import useOgTags from "../useOgTags.jsx";
 // ── Secondary app (used only for creating new employee Auth accounts) ─────────
 let secondaryApp = null;
 function getSecondaryAuth() {
@@ -67,6 +67,11 @@ function Toast({ toast }) {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function FounderDashboard() {
+  useOgTags({
+    title: "Founder | Ekalavya",
+    description: "Ekalavya",
+    image:'vite.svg'
+  });
   const [founder, setFounder]             = useState(null);
   const [academyId, setAcademyId]         = useState(null);
   const [academy, setAcademy]             = useState(null);

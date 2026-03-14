@@ -3,6 +3,7 @@ import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import * as THREE from "three";
 import "./LandingPage.css";
+import useOgTags from "../useOgTags.jsx";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -263,6 +264,11 @@ function buildThreeScene(canvas) {
 
 /* ── Component ───────────────────────────────────────────────────────────── */
 export default function LandingPage() {
+  useOgTags({
+      title: "Ekalavya | A self-study platform for UPSC aspirants",
+      description: "Ekalavya",
+      image:'vite.svg'
+    });
   const [introOver,    setIntroOver]    = useState(false);
   const [navScrolled,  setNavScrolled]  = useState(false);
   const [menuOpen,     setMenuOpen]     = useState(false);

@@ -4,7 +4,13 @@ import './login.css'
 import { auth, db } from '../firebase'
 import { getDoc, doc, collection, getDocs } from 'firebase/firestore'
 import { signInWithEmailAndPassword } from 'firebase/auth'
+import useOgTags from '../useOgTags.jsx'
 export default function Login() {
+    useOgTags({
+    title: "Login | Ekalavya",
+    description: "Ekalavya",
+    image:'vite.svg'
+  });
     let [index,changeIndexTo]=useState(0);
     let [email, setEmail] = useState('')
     let [password, setPassword] = useState('')
